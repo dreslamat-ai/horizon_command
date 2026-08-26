@@ -431,6 +431,91 @@ input[type="email"], input[type="tel"], input[type="url"], input[type="search"]{
 .modal-header{ border-color: var(--h-line); }
 .modal-title{ color: var(--h-navy-900); font-weight: 800; }
 
+/* ── slide-in child table row editor ──────────────────────────────────────
+   Idea seen in a third-party Frappe v16 theme (vineyrawat/saas_theme,
+   MIT-licensed, README-documented) — but this is NOT a port of their code.
+   Their actual CSS/JS wasn't reachable from here (GitHub blocked fetching
+   past the README), so what follows is an independent implementation of
+   the same idea, built against Frappe's own selectors with the confidence
+   level each one actually earns:
+
+   `.grid-row-open-form` (the wrapper Frappe's grid_row.js expands when you
+   open a row for full editing) is LONG-STANDING core Frappe grid
+   infrastructure — the same category of "stable, years-old, public DOM
+   contract" as `.modal`/`.list-row` elsewhere in this file, not the newer,
+   still-settling v16 shell. Turning its default in-place expansion into a
+   fixed-position slide-in panel is CSS-only — position, transform,
+   transition on an element Frappe already creates and already toggles
+   open/closed itself, so no JS is needed to control it.
+
+   VERIFY-AFTER-INSTALL NOTE: "long-standing" is not the same as
+   "guaranteed unchanged in every v16 point release." If a row's editor
+   doesn't visually slide in on your instance, open dev tools on an actual
+   grid row's expand icon and confirm `.grid-row-open-form` is still the
+   wrapper class before assuming this section is broken — Frappe may have
+   renamed it, in which case update the selector here rather than the
+   idea. */
+.grid-row-open-form{
+  position: fixed !important;
+  top: 0; bottom: 0;
+  inset-inline-end: 0;
+  width: min(92vw, 480px) !important;
+  max-width: none !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  background: #fff;
+  box-shadow: -8px 0 32px -12px rgba(16,26,43,.35);
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  animation: slideInPanel .28s var(--h-spring, cubic-bezier(.22,1,.36,1));
+  border-radius: 0;
+  border-inline-start: 1px solid var(--h-line);
+}
+@keyframes slideInPanel{
+  from{ transform: translateX(var(--h-panel-from, 100%)); opacity: .6; }
+  to{ transform: translateX(0); opacity: 1; }
+}
+html[dir="rtl"]{ --h-panel-from: -100%; }
+html[dir="ltr"]{ --h-panel-from: 100%; }
+.grid-row-open-form .form-in-grid{ padding: 18px 20px; flex: 1; }
+.grid-row-open-form .form-column{ padding-inline: 0; }
+/* header/footer stay visible at all times while the body scrolls, per the
+   same "every action button reachable without scrolling" idea */
+.grid-row-open-form .row-form-heading,
+.grid-row-open-form .form-toolbar{
+  position: sticky; background: #fff; z-index: 2;
+  border-bottom: 1px solid var(--h-line); padding: 12px 20px;
+}
+.grid-row-open-form .row-form-heading{ top: 0; font-weight: 900; color: var(--h-navy-900); }
+.grid-row-open-form .form-toolbar{ bottom: 0; border-top: 1px solid var(--h-line); border-bottom: none; }
+@media (max-width: 640px){
+  .grid-row-open-form{ width: 100vw !important; }
+}
+
+/* ── desk homepage — workspace icon grid ──────────────────────────────────
+   The /app landing screen (the grid of workspace shortcuts you see right
+   after login) is part of v16's NEW shell — the least stable part of Desk
+   this whole theme touches, same caveat as the sidebar. Themed at surface
+   level only (colours, card radius, hover lift on whatever the outer
+   shortcut-card wrapper turns out to be) rather than assuming a specific
+   grid-column count or nested structure, for the same reason: confident
+   guesses at settling internals age badly. `[class*="shortcut"]` and
+   `[class*="widget-box"]` are deliberately broad substring matches, not
+   exact class names, so this survives minor renames the exact-match
+   selectors elsewhere in this file wouldn't. */
+[class*="shortcut"][class*="widget"], [class*="widget-box"]{
+  border-radius: var(--h-r-lg) !important;
+  border-color: var(--h-line) !important;
+  transition: transform .2s var(--h-spring, ease), box-shadow .2s !important;
+}
+[class*="shortcut"][class*="widget"]:hover, [class*="widget-box"]:hover{
+  transform: translateY(-3px);
+  box-shadow: var(--h-shadow-1) !important;
+  border-color: var(--h-navy-300) !important;
+}
+
 /* ── awesomplete / suggestion dropdowns ───────────────────────────────── */
 .awesomplete ul{
   border: 1.5px solid var(--h-navy-300); border-radius: var(--h-r-md); box-shadow: var(--h-shadow-1);
@@ -1014,3 +1099,78 @@ html.h-sidebar-collapsed .body-sidebar-container .sidebar-item-label{ display: n
 .body-sidebar-container a:not(.btn):not(.navbar-brand):not(.app-logo):not(.dropdown-item):hover{ background: rgba(255,255,255,.14) !important; color: #fff !important; box-shadow: none !important; }
 .body-sidebar-container .sidebar-item-label{ color: #fff !important; }
 .body-sidebar-container .sidebar-item-icon svg{ stroke: #fff !important; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v16.31 — الميزتان الجديدتان على DOM هذا البنش الفعلي (مقيس ٢٦ أغسطس):
+
+   ١) محرر الصف: `.grid-row-open-form` القديم غير موجود إطلاقًا في v16.31 —
+      المحرر بقى `.form-in-grid` داخل `.grid-row-open`، وهو fixed أصلًا
+      كمودال متوسّط (900px، z-index 1021) بخلفية `.modal-backdrop.grid-form`.
+      قياس playwright: querySelector('.grid-row-open-form') = null والبنية
+      الحقيقية اتطبعت سلسلة آباء كاملة. كتلة الأصل فوق محفوظة كما سُلّمت
+      (لو Frappe رجع للـDOM القديم تشتغل)، ودي الطبقة المقابلة للجديد.
+
+   ٢) الرئيسية: مفيش [class*="widget-box"] ولا [class*="shortcut"][class*=
+      "widget"] في القشرة الجديدة — لا في /desk ولا جوه صفحات الـworkspace
+      (مقيس: صفر تطابق في الاتنين). كروت الرئيسية الحقيقية هي
+      `.icons-container .desktop-icon`. سيلكتورات الأصل السطحية باقية فوق
+      (بتشتغل لو الكلاسات رجعت)، ودول المقيسون هنا.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── ١) محرر الصف المنزلق — على بنية v16.31 الحقيقية */
+.grid-row-open .form-in-grid{
+  top: 0 !important; bottom: 0 !important;
+  inset-inline-end: 0 !important;
+  inset-inline-start: auto !important;
+  left: auto; right: auto;
+  width: min(92vw, 480px) !important;
+  max-width: none !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  background: #fff;
+  box-shadow: -8px 0 32px -12px rgba(16,26,43,.35);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  /* القشرة بتوسّط المحرر بـtransform: translateX(240px) (مقيس matrix
+     e=240) — يتصفّر بـ!important، والانزلاق على خاصية translate المستقلة
+     لأن keyframes ماتقدرش تغلب إعلان !important على transform نفسه */
+  transform: none !important;
+  animation: slideInPanelV2 .28s var(--h-spring, cubic-bezier(.22,1,.36,1));
+  border-radius: 0 !important;
+  border-inline-start: 1px solid var(--h-line);
+}
+@keyframes slideInPanelV2{
+  from{ translate: var(--h-panel-from, 100%) 0; opacity: .6; }
+  to{ translate: 0 0; opacity: 1; }
+}
+/* العنوان (صف التحرير #ن وأزرار الإدراج/الحذف) ثابت فوق والجسم بيسكرول */
+.grid-row-open .form-in-grid .grid-form-heading{
+  position: sticky; top: 0; background: #fff; z-index: 2;
+  border-bottom: 1px solid var(--h-line); padding: 12px 16px;
+  font-weight: 900; color: var(--h-navy-900);
+}
+.grid-row-open .form-in-grid .grid-form-body{ padding: 14px 16px; flex: 1; }
+.grid-row-open .form-in-grid .form-column{ padding-inline: 0; }
+/* الخلفية المعتمة بتاعة v16.31 نفسه — نخففها لإحساس اللوحة الجانبية */
+.modal-backdrop.grid-form{ opacity: .25 !important; }
+@media (max-width: 640px){
+  .grid-row-open .form-in-grid{ width: 100vw !important; }
+}
+
+/* ── ٢) كروت الرئيسية — البنية المقيسة فعليًا في v16.31:
+   a.desktop-icon (دايرة بيضا 127px radius:999) > .icon-container (مربع
+   الأيقونة 54px radius:16) + .icon-caption. الدايرة تصميم القشرة الأصلي —
+   ما نفرضش عليها radius مربع؛ الرفعة والظل بيتبعوا الاستدارة تلقائيًا.
+   مسكوب على .desktop-container (الرئيسية) عشان درج التطبيقات الجانبي
+   اللي بيشارك نفس كلاس .desktop-icon ما يتحركش */
+.desktop-container .desktop-icon{
+  transition: transform .2s var(--h-spring, ease), box-shadow .2s !important;
+}
+.desktop-container .desktop-icon:hover{
+  transform: translateY(-3px);
+  box-shadow: var(--h-shadow-1) !important;
+}
+.desktop-container .desktop-icon:hover .icon-container{
+  background: var(--h-navy-050, #eef2f7) !important;
+}
