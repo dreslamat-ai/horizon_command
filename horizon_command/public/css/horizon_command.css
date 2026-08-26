@@ -993,6 +993,10 @@ html:not(.h-sidebar-collapsed) [data-level="3"] > a{
   transition: width .18s ease, min-width .18s ease;
   overflow: hidden;
 }
+/* الابنة .body-sidebar بترسم خلفية فاتحة خاصة بها فوق الحاوية وبتغطيها
+   بالكامل (مقيس على theme.horizonerp: الحاوية rgb(29,45,68) والابنة
+   rgb(248,248,248) فوقها — نفس العطب اتقاس واتصلح في horizon_theme) */
+.body-sidebar-container .body-sidebar{ background: transparent !important; }
 html.h-sidebar-collapsed .body-sidebar-container{
   width: var(--h-rail-w) !important;
   min-width: var(--h-rail-w) !important;
